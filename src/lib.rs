@@ -23,6 +23,7 @@ pub struct CompositionInput {
     pub width: u16,
     pub padding: u8,
     pub playback_index: Option<u16>,
+    pub open_string_cost: u16
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -57,6 +58,7 @@ pub fn wrapper_create_arrangements(
         width,
         padding,
         playback_index,
+        open_string_cost
     } = composition_input;
 
     let input_lines: Vec<arrangement::Line<Vec<Pitch>>> = match parser::parse_lines(input_pitches) {
@@ -86,7 +88,7 @@ pub fn wrapper_create_arrangements(
     let guitar = Guitar::new(tuning, guitar_num_frets, guitar_capo)?;
 
     let arrangements =
-        match arrangement::create_arrangements(guitar.clone(), input_lines, num_arrangements) {
+        match arrangement::create_arrangements(guitar.clone(), input_lines, num_arrangements, open_string_cost) {
             Ok(arrangements) => arrangements,
             Err(e) => return Err(anyhow!(format!("{}", e))),
         };
@@ -117,6 +119,7 @@ mod test_wrapper_create_arrangements {
             width: 30,
             padding: 2,
             playback_index: Some(3),
+            open_string_cost: 0
         };
 
         let compositions = wrapper_create_arrangements(composition_input).unwrap();
@@ -148,6 +151,7 @@ mod test_wrapper_create_arrangements {
             width: 30,
             padding: 2,
             playback_index: Some(3),
+            open_string_cost: 0
         };
 
         let compositions = wrapper_create_arrangements(composition_input).unwrap();
@@ -179,6 +183,7 @@ mod test_wrapper_create_arrangements {
             width: 20,
             padding: 2,
             playback_index: Some(3),
+            open_string_cost: 0
         };
         assert!(wrapper_create_arrangements(composition_input).is_err());
     }

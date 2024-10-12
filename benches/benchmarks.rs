@@ -187,6 +187,7 @@ fn bench_arrangement_creation(c: &mut Criterion) {
                 black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                 black_box(fur_elise_lines()),
                 black_box(1),
+                0
             )
         })
     });
@@ -196,6 +197,7 @@ fn bench_arrangement_creation(c: &mut Criterion) {
                 black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                 black_box(fur_elise_lines()),
                 black_box(3),
+                0
             )
         })
     });
@@ -205,6 +207,7 @@ fn bench_arrangement_creation(c: &mut Criterion) {
                 black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                 black_box(fur_elise_lines()),
                 black_box(5),
+                0
             )
         })
     });
@@ -224,6 +227,7 @@ fn bench_arrangement_scaling(c: &mut Criterion) {
                     black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                     black_box(fur_elise_lines()),
                     black_box(num),
+                    0
                 )
             });
         });
@@ -238,6 +242,7 @@ fn bench_render_tab(c: &mut Criterion) {
         Guitar::default(),
         parse_lines(fur_elise_input().to_owned()).unwrap(),
         1,
+        0
     )
     .unwrap();
 

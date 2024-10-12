@@ -18,8 +18,9 @@ fn main() -> Result<()> {
         Eb4
         E4
         B3
-        D4
+        D3B4
         C4
+
         -
         A2A3
         E3E3E3
@@ -49,14 +50,14 @@ fn main() -> Result<()> {
     // dbg!(&guitar);
 
     let num_arrangements = 1;
-    let arrangements = match create_arrangements(guitar.clone(), lines, num_arrangements) {
+    let arrangements = match create_arrangements(guitar.clone(), lines, num_arrangements, 0) {
         Ok(arrangements) => arrangements,
         Err(e) => return Err(std::sync::Arc::try_unwrap(e).unwrap()),
     };
 
     // dbg!(&arrangements);
 
-    let tab_width = 20;
+    let tab_width = 60;
     let padding = 1;
     let playback_index = Some(2);
     let tab = render_tab(

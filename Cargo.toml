@@ -11,6 +11,10 @@ license = "GPL-3.0-only"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+
+
 [dependencies]
 anyhow = "1.0.71"
 average = { version = "0.14.1", features = ["rayon"] }
@@ -40,3 +44,5 @@ criterion = { version = "0.4", features = ["html_reports"] }
 [[bench]]
 name = "benchmarks"
 harness = false
+
+
