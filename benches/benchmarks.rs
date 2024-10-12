@@ -281,6 +281,7 @@ fn bench_create_single_composition_scaling(c: &mut Criterion) {
             width: 40,
             padding: 2,
             playback_index: Some(12),
+            open_string_cost: 0
         };
 
         // group
@@ -311,6 +312,7 @@ fn bench_create_single_composition_large_scaling(c: &mut Criterion) {
             width: 40,
             padding: 2,
             playback_index: Some(12),
+            open_string_cost: 0
         };
 
         // group
