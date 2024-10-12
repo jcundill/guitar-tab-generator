@@ -5,6 +5,7 @@
 
 <img src="examples/logo.PNG" alt="Guitar Tab Generator logo" width="300">
 
+
 Generate fingerstyle guitar tabs based on the difficulty of different finger positions. Built with Rust. Designed for compilation to WebAssembly for use in web applications.
 
 [<img align="right" width="30px" alt="Web Assembly"
