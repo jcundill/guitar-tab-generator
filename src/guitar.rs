@@ -559,8 +559,8 @@ mod test_check_capo_number {
 ///
 /// Arguments:
 ///
-/// * `open_string_pitch`: The `open_string_pitch` parameter represents the pitch of the open
-/// string.
+/// * `open_string_pitch`: The `open_string_pitch` parameter represents the pitch of the open string.
+///
 /// * `num_frets`: The `num_frets` parameter represents the number of
 ///   subsequent number of half steps to include in the range.
 fn create_string_range(open_string_pitch: &Pitch, num_frets: u8) -> Result<Vec<Pitch>> {

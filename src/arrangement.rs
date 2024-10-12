@@ -44,29 +44,26 @@ pub struct BeatFingeringCombo {
     fingering_combo: BeatVec<PitchFingering>,
     avg_non_zero_fret: Option<OrderedFloat<f32>>,
     uses_open_string: bool,
-    non_zero_fret_span: u8
+    non_zero_fret_span: u8,
 }
 impl BeatFingeringCombo {
     pub fn new(beat_fingering_candidate: BeatVec<&PitchFingering>) -> Self {
-         BeatFingeringCombo {
+        BeatFingeringCombo {
             fingering_combo: beat_fingering_candidate
                 .clone()
                 .into_iter()
                 .cloned()
                 .collect(),
             avg_non_zero_fret: calc_avg_non_zero_fret(&beat_fingering_candidate),
-            uses_open_string : has_open_string(&beat_fingering_candidate),
+            uses_open_string: has_open_string(&beat_fingering_candidate),
             non_zero_fret_span: calc_fret_span(beat_fingering_candidate).unwrap_or(0),
         }
     }
 }
 
 fn has_open_string(beat_fingering_candidate: &[&PitchFingering]) -> bool {
-    beat_fingering_candidate
-    .iter()
-    .any(|&a| a.fret == 0)
+    beat_fingering_candidate.iter().any(|&a| a.fret == 0)
 }
-
 
 #[cfg(test)]
 mod test_create_beat_fingering_combo {
@@ -85,7 +82,7 @@ mod test_create_beat_fingering_combo {
             fingering_combo,
             avg_non_zero_fret,
             non_zero_fret_span,
-            uses_open_string: _
+            uses_open_string: _,
         } = BeatFingeringCombo::new(vec![&pitch_fingering_1]);
 
         assert_eq!(fingering_combo, vec![pitch_fingering_1]);
@@ -119,7 +116,7 @@ mod test_create_beat_fingering_combo {
             fingering_combo,
             avg_non_zero_fret,
             non_zero_fret_span,
-            uses_open_string: _
+            uses_open_string: _,
         } = BeatFingeringCombo::new(vec![
             &pitch_fingering_1,
             &pitch_fingering_2,
@@ -268,7 +265,7 @@ pub fn create_arrangements(
     guitar: Guitar,
     input_lines: Vec<Line<BeatVec<Pitch>>>,
     num_arrangements: u8,
-    open_string_cost: u16
+    open_string_cost: u16,
 ) -> Result<Vec<Arrangement>, Arc<anyhow::Error>> {
     const MAX_NUM_ARRANGEMENTS: u8 = 20;
     match num_arrangements {
@@ -945,7 +942,11 @@ mod test_calc_fret_span {
 ///
 /// Returns a vector of tuples, where each tuple contains a `Node` the `i32`
 /// cost of moving to that node.
-fn calc_next_nodes(current_node: &Node, path_nodes: Vec<Node>, open_string_cost: u16) -> Vec<(Node, i32)> {
+fn calc_next_nodes(
+    current_node: &Node,
+    path_nodes: Vec<Node>,
+    open_string_cost: u16,
+) -> Vec<(Node, i32)> {
     let next_node_index = match current_node {
         Node::Start => 0,
         Node::Rest { line_index } | Node::Note { line_index, .. } => line_index + 1,
@@ -982,7 +983,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.1)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -991,7 +992,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.2)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1000,7 +1001,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(1.1)),
                     non_zero_fret_span: 1,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
             Node::Rest { line_index: 2 },
@@ -1011,7 +1012,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1020,7 +1021,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
         ]
@@ -1037,7 +1038,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.1)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1046,12 +1047,17 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.2)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
         ]
         .iter()
-        .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node, 0)))
+        .map(|node| {
+            (
+                node.clone(),
+                calculate_node_difficulty(&current_node, node, 0),
+            )
+        })
         .collect_vec();
 
         assert_eq!(
@@ -1067,7 +1073,7 @@ mod test_calc_next_nodes {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(0.1)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1077,11 +1083,16 @@ mod test_calc_next_nodes {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(1.1)),
                 non_zero_fret_span: 1,
-                uses_open_string: false
+                uses_open_string: false,
             },
         }]
         .iter()
-        .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node, 0)))
+        .map(|node| {
+            (
+                node.clone(),
+                calculate_node_difficulty(&current_node, node, 0),
+            )
+        })
         .collect_vec();
 
         assert_eq!(
@@ -1097,13 +1108,18 @@ mod test_calc_next_nodes {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(1.1)),
                 non_zero_fret_span: 1,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
         let expected_nodes_and_costs = [Node::Rest { line_index: 2 }]
             .iter()
-            .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node, 0)))
+            .map(|node| {
+                (
+                    node.clone(),
+                    calculate_node_difficulty(&current_node, node, 0),
+                )
+            })
             .collect_vec();
 
         assert_eq!(
@@ -1117,7 +1133,12 @@ mod test_calc_next_nodes {
 
         let expected_nodes_and_costs = [Node::Rest { line_index: 3 }]
             .iter()
-            .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node, 0)))
+            .map(|node| {
+                (
+                    node.clone(),
+                    calculate_node_difficulty(&current_node, node, 0),
+                )
+            })
             .collect_vec();
 
         assert_eq!(
@@ -1136,7 +1157,7 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1145,12 +1166,17 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false
+                    uses_open_string: false,
                 },
             },
         ]
         .iter()
-        .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node, 0)))
+        .map(|node| {
+            (
+                node.clone(),
+                calculate_node_difficulty(&current_node, node, 0),
+            )
+        })
         .collect_vec();
 
         assert_eq!(
@@ -1165,7 +1191,7 @@ mod test_calc_next_nodes {
         calc_next_nodes(
             &Node::Rest { line_index: 3 },
             vec![Node::Rest { line_index: 4 }, Node::Start],
-            0
+            0,
         );
     }
 }
@@ -1190,7 +1216,7 @@ fn calculate_node_difficulty(current_node: &Node, next_node: &Node, open_string_
         } => (
             beat_fingering_combo.avg_non_zero_fret,
             beat_fingering_combo.non_zero_fret_span as f32,
-            beat_fingering_combo.uses_open_string
+            beat_fingering_combo.uses_open_string,
         ),
     };
 
@@ -1220,7 +1246,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1229,7 +1255,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1243,7 +1269,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1257,7 +1283,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1274,7 +1300,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1291,7 +1317,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.0)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1300,7 +1326,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(1.6)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1314,7 +1340,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(4.133333)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1323,7 +1349,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(4.133333)),
                 non_zero_fret_span: 3,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1337,7 +1363,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(5.0)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1346,7 +1372,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(2.0)),
                 non_zero_fret_span: 5,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1360,7 +1386,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(7.3333333)),
                 non_zero_fret_span: 0,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1369,7 +1395,7 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.6666666)),
                 non_zero_fret_span: 4,
-                uses_open_string: false
+                uses_open_string: false,
             },
         };
 
@@ -1434,7 +1460,7 @@ mod test_process_path {
             }],
             avg_non_zero_fret: Some(OrderedFloat(3.0)),
             non_zero_fret_span: 0,
-            uses_open_string: false
+            uses_open_string: false,
         };
 
         let path_nodes = vec![
@@ -1465,7 +1491,7 @@ mod test_process_path {
             }],
             avg_non_zero_fret: Some(OrderedFloat(3.0)),
             non_zero_fret_span: 4,
-            uses_open_string: false
+            uses_open_string: false,
         };
 
         let path_nodes = vec![
