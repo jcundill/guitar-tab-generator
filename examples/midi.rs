@@ -14,8 +14,9 @@ fn main() {
     let mut last_delta: u28 = 0.into();
     for event in smf.tracks[0].iter() {
         //println!("{:?}", event.kind);
-        match event.kind {
-            TrackEventKind::Midi { message, .. } => match message {
+
+        if let TrackEventKind::Midi { message, .. } = event.kind {
+            match message {
                 MidiMessage::NoteOn { key, vel } => {
                     let delta = event.delta;
                     let _last_click = delta.as_int() / 240;
@@ -43,15 +44,14 @@ fn main() {
                 _ => {
                     //println!("{:?}", event.kind)
                 }
-            },
-            _ => {}
+            }
         }
     }
 
     create_tab(notes.join("\n"));
 }
 
-fn create_tab(notes: String) -> () {
+fn create_tab(notes: String) {
     let comp: CompositionInput = CompositionInput {
         pitches: notes,
         guitar_capo: 0,
