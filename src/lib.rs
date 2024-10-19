@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use arrangement::BeatVec;
+use composition::{BeatVec, Line};
 use guitar::Guitar;
 use itertools::Itertools;
 use pitch::Pitch;
@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 pub mod arrangement;
+pub mod composition;
 pub mod guitar;
 pub mod parser;
 pub mod pitch;
@@ -23,7 +24,6 @@ pub struct CompositionInput {
     pub width: u16,
     pub padding: u8,
     pub playback_index: Option<u16>,
-    pub open_string_cost: u16,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -58,28 +58,26 @@ pub fn wrapper_create_arrangements(
         width,
         padding,
         playback_index,
-        open_string_cost,
     } = composition_input;
 
-    let input_lines: Vec<arrangement::Line<Vec<Pitch>>> = match parser::parse_lines(input_pitches) {
-        Ok(input_lines) => input_lines,
-        Err(e) => return Err(anyhow!(format!("{}", e))),
-    };
+    let input_lines: Vec<composition::Line<BeatVec<Pitch>>> =
+        match parser::parse_lines(input_pitches) {
+            Ok(input_lines) => input_lines,
+            Err(e) => return Err(anyhow!(format!("{}", e))),
+        };
 
     let first_playable_index = input_lines
         .iter()
-        .position(|line| matches!(line, arrangement::Line::Playable(_)))
+        .position(|line| matches!(line, Line::Playable(_)))
         .unwrap_or(0);
 
     let pitches: Vec<BeatVec<String>> = input_lines
         .iter()
         .skip(first_playable_index)
         .map(|line| match line {
-            arrangement::Line::Playable(pitches) => {
-                pitches.iter().map(|p| p.plain_text()).collect()
-            }
-            arrangement::Line::Rest => vec!["REST".to_owned()],
-            arrangement::Line::MeasureBreak => vec!["MEASURE_BREAK".to_owned()],
+            Line::Playable(pitches) => pitches.iter().map(|p| p.plain_text()).collect(),
+            Line::Rest => vec!["REST".to_owned()],
+            Line::MeasureBreak => vec!["MEASURE_BREAK".to_owned()],
         })
         .collect_vec();
 
@@ -87,15 +85,11 @@ pub fn wrapper_create_arrangements(
 
     let guitar = Guitar::new(tuning, guitar_num_frets, guitar_capo)?;
 
-    let arrangements = match arrangement::create_arrangements(
-        guitar.clone(),
-        input_lines,
-        num_arrangements,
-        open_string_cost,
-    ) {
-        Ok(arrangements) => arrangements,
-        Err(e) => return Err(anyhow!(format!("{}", e))),
-    };
+    let arrangements =
+        match arrangement::create_arrangements(guitar.clone(), input_lines, num_arrangements) {
+            Ok(arrangements) => arrangements,
+            Err(e) => return Err(anyhow!(format!("{}", e))),
+        };
 
     let compositions = arrangements
         .iter()
@@ -123,7 +117,6 @@ mod test_wrapper_create_arrangements {
             width: 30,
             padding: 2,
             playback_index: Some(3),
-            open_string_cost: 0,
         };
 
         let compositions = wrapper_create_arrangements(composition_input).unwrap();
@@ -155,7 +148,6 @@ mod test_wrapper_create_arrangements {
             width: 30,
             padding: 2,
             playback_index: Some(3),
-            open_string_cost: 0,
         };
 
         let compositions = wrapper_create_arrangements(composition_input).unwrap();
@@ -187,7 +179,6 @@ mod test_wrapper_create_arrangements {
             width: 20,
             padding: 2,
             playback_index: Some(3),
-            open_string_cost: 0,
         };
         assert!(wrapper_create_arrangements(composition_input).is_err());
     }

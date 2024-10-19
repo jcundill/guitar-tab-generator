@@ -1,243 +1,19 @@
 use crate::{
-    guitar::{generate_pitch_fingerings, Guitar, PitchFingering},
+    composition::{BeatFingeringCombo, BeatVec, InvalidInput, Line, Node, PitchVec},
+    guitar::{generate_pitch_fingerings_for_pitch, Guitar, PitchFingering},
     pitch::Pitch,
 };
 use anyhow::{anyhow, Result};
-use average::Mean;
 use itertools::Itertools;
 use ordered_float::OrderedFloat;
 use pathfinding::prelude::yen;
 use std::{collections::HashSet, sync::Arc};
 
-#[derive(Debug)]
-pub struct InvalidInput {
-    value: String,
-    line_number: u16,
-}
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub enum Line<T> {
-    MeasureBreak,
-    Rest,
-    Playable(T),
-}
-use Line::{MeasureBreak, Playable, Rest};
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-enum Node {
-    Start,
-    Rest {
-        line_index: u16,
-    },
-    Note {
-        line_index: u16,
-        beat_fingering_combo: BeatFingeringCombo,
-    },
-}
-
-pub type PitchVec<T> = Vec<T>;
-pub type BeatVec<T> = Vec<T>;
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
-#[allow(dead_code)]
-pub struct BeatFingeringCombo {
-    fingering_combo: BeatVec<PitchFingering>,
-    avg_non_zero_fret: Option<OrderedFloat<f32>>,
-    uses_open_string: bool,
-    non_zero_fret_span: u8,
-}
-impl BeatFingeringCombo {
-    pub fn new(beat_fingering_candidate: BeatVec<&PitchFingering>) -> Self {
-        BeatFingeringCombo {
-            fingering_combo: beat_fingering_candidate
-                .clone()
-                .into_iter()
-                .cloned()
-                .collect(),
-            avg_non_zero_fret: calc_avg_non_zero_fret(&beat_fingering_candidate),
-            uses_open_string: has_open_string(&beat_fingering_candidate),
-            non_zero_fret_span: calc_fret_span(beat_fingering_candidate).unwrap_or(0),
-        }
-    }
-}
-
-fn has_open_string(beat_fingering_candidate: &[&PitchFingering]) -> bool {
-    beat_fingering_candidate.iter().any(|&a| a.fret == 0)
-}
-
-#[cfg(test)]
-mod test_create_beat_fingering_combo {
-    use super::*;
-    use crate::string_number::StringNumber;
-
-    #[test]
-    fn simple() {
-        let pitch_fingering_1 = PitchFingering {
-            pitch: Pitch::A0,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 2,
-        };
-
-        let BeatFingeringCombo {
-            fingering_combo,
-            avg_non_zero_fret,
-            non_zero_fret_span,
-            uses_open_string: _,
-        } = BeatFingeringCombo::new(vec![&pitch_fingering_1]);
-
-        assert_eq!(fingering_combo, vec![pitch_fingering_1]);
-        assert_eq!(avg_non_zero_fret, Some(OrderedFloat(2.0)));
-        assert_eq!(non_zero_fret_span, 0);
-    }
-    #[test]
-    fn complex() {
-        let pitch_fingering_1 = PitchFingering {
-            pitch: Pitch::A0,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 2,
-        };
-        let pitch_fingering_2 = PitchFingering {
-            pitch: Pitch::B1,
-            string_number: StringNumber::new(2).unwrap(),
-            fret: 5,
-        };
-        let pitch_fingering_3 = PitchFingering {
-            pitch: Pitch::C2,
-            string_number: StringNumber::new(3).unwrap(),
-            fret: 0,
-        };
-        let pitch_fingering_4 = PitchFingering {
-            pitch: Pitch::D3,
-            string_number: StringNumber::new(4).unwrap(),
-            fret: 1,
-        };
-
-        let BeatFingeringCombo {
-            fingering_combo,
-            avg_non_zero_fret,
-            non_zero_fret_span,
-            uses_open_string: _,
-        } = BeatFingeringCombo::new(vec![
-            &pitch_fingering_1,
-            &pitch_fingering_2,
-            &pitch_fingering_3,
-            &pitch_fingering_4,
-        ]);
-
-        assert_eq!(
-            fingering_combo,
-            vec![
-                pitch_fingering_1,
-                pitch_fingering_2,
-                pitch_fingering_3,
-                pitch_fingering_4
-            ]
-        );
-        assert_eq!(avg_non_zero_fret, Some(OrderedFloat(8.0 / 3.0)));
-        assert_eq!(non_zero_fret_span, 4);
-    }
-}
-
-fn calc_avg_non_zero_fret(
-    beat_fingering_candidate: &[&PitchFingering],
-) -> Option<OrderedFloat<f32>> {
-    let non_zero_fingerings = beat_fingering_candidate
-        .iter()
-        .filter(|fingering| fingering.fret != 0)
-        .map(|fingering| fingering.fret as f64)
-        .collect::<Mean>();
-
-    match non_zero_fingerings.is_empty() {
-        true => None,
-        false => Some(OrderedFloat(non_zero_fingerings.mean() as f32)),
-    }
-}
-#[cfg(test)]
-mod test_calc_avg_non_zero_fret {
-    use super::*;
-    use crate::string_number::StringNumber;
-
-    #[test]
-    fn single_non_zero_fret() {
-        let pitch_fingering_1 = PitchFingering {
-            pitch: Pitch::A0,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 2,
-        };
-
-        assert_eq!(
-            calc_avg_non_zero_fret(&[&pitch_fingering_1]),
-            Some(OrderedFloat(2.0))
-        );
-    }
-    #[test]
-    fn single_zero_fret() {
-        let pitch_fingering_1 = PitchFingering {
-            pitch: Pitch::A0,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 0,
-        };
-
-        assert_eq!(calc_avg_non_zero_fret(&[&pitch_fingering_1]), None);
-    }
-    #[test]
-    fn multiple_zero_frets() {
-        let pitch_fingering_1 = PitchFingering {
-            pitch: Pitch::A0,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 0,
-        };
-        let pitch_fingering_2 = PitchFingering {
-            pitch: Pitch::B2,
-            string_number: StringNumber::new(2).unwrap(),
-            fret: 0,
-        };
-
-        assert_eq!(
-            calc_avg_non_zero_fret(&[&pitch_fingering_1, &pitch_fingering_2]),
-            None
-        );
-    }
-    #[test]
-    fn multiple_mixed_frets() {
-        let pitch_fingering_1 = PitchFingering {
-            pitch: Pitch::A0,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 2,
-        };
-        let pitch_fingering_2 = PitchFingering {
-            pitch: Pitch::B1,
-            string_number: StringNumber::new(2).unwrap(),
-            fret: 5,
-        };
-        let pitch_fingering_3 = PitchFingering {
-            pitch: Pitch::C2,
-            string_number: StringNumber::new(3).unwrap(),
-            fret: 0,
-        };
-        let pitch_fingering_4 = PitchFingering {
-            pitch: Pitch::D3,
-            string_number: StringNumber::new(4).unwrap(),
-            fret: 1,
-        };
-
-        assert_eq!(
-            calc_avg_non_zero_fret(&[
-                &pitch_fingering_1,
-                &pitch_fingering_2,
-                &pitch_fingering_3,
-                &pitch_fingering_4,
-            ]),
-            Some(OrderedFloat(8.0 / 3.0))
-        );
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Arrangement {
     pub lines: Vec<Line<BeatVec<PitchFingering>>>,
-    difficulty: i32,
-    max_fret_span: u8,
+    pub(crate) difficulty: i32,
+    pub(crate) max_fret_span: u8,
 }
 impl Arrangement {
     pub fn max_fret_span(&self) -> u8 {
@@ -265,7 +41,6 @@ pub fn create_arrangements(
     guitar: Guitar,
     input_lines: Vec<Line<BeatVec<Pitch>>>,
     num_arrangements: u8,
-    open_string_cost: u16,
 ) -> Result<Vec<Arrangement>, Arc<anyhow::Error>> {
     const MAX_NUM_ARRANGEMENTS: u8 = 20;
     match num_arrangements {
@@ -312,20 +87,20 @@ pub fn create_arrangements(
     let measure_break_indices: Vec<usize> = pitch_fingering_candidates
         .iter()
         .enumerate()
-        .filter(|(.., line_candidate)| matches!(line_candidate, MeasureBreak))
+        .filter(|(.., line_candidate)| matches!(line_candidate, Line::MeasureBreak))
         .map(|(line_index, ..)| line_index)
         .collect_vec();
 
     let path_node_groups: Vec<BeatVec<Node>> = pitch_fingering_candidates
         .iter()
-        .filter(|line_candidate| !matches!(line_candidate, MeasureBreak))
+        .filter(|line_candidate| !matches!(line_candidate, Line::MeasureBreak))
         .enumerate()
         .map(|(line_index, line_candidate)| match line_candidate {
-            MeasureBreak => unreachable!("Measure breaks should have been filtered out."),
-            Rest => vec![Node::Rest {
+            Line::MeasureBreak => unreachable!("Measure breaks should have been filtered out."),
+            Line::Rest => vec![Node::Rest {
                 line_index: line_index as u16,
             }],
-            Playable(beat_fingerings_per_pitch) => {
+            Line::Playable(beat_fingerings_per_pitch) => {
                 generate_fingering_combos(beat_fingerings_per_pitch)
                     .iter()
                     .map(|pitch_fingering_group| Node::Note {
@@ -345,7 +120,7 @@ pub fn create_arrangements(
 
     let path_results: Vec<(Vec<Node>, i32)> = yen(
         &Node::Start,
-        |current_node| calc_next_nodes(current_node, path_nodes.clone(), open_string_cost),
+        |current_node| calc_next_nodes(current_node, path_nodes.clone()),
         |current_node| match current_node {
             Node::Start => false,
             Node::Rest { line_index } | Node::Note { line_index, .. } => {
@@ -390,7 +165,7 @@ mod test_create_arrangements {
             max_fret_span: 0,
         }];
 
-        let arrangements = create_arrangements(Guitar::default(), input_pitches, 1, 0).unwrap();
+        let arrangements = create_arrangements(Guitar::default(), input_pitches, 1).unwrap();
 
         assert_eq!(arrangements, expected_arrangements);
     }
@@ -436,7 +211,7 @@ mod test_create_arrangements {
             },
         ];
 
-        let arrangements = create_arrangements(Guitar::default(), input_pitches, 10, 0).unwrap();
+        let arrangements = create_arrangements(Guitar::default(), input_pitches, 10).unwrap();
 
         assert_eq!(arrangements, expected_arrangements);
     }
@@ -461,7 +236,7 @@ mod test_create_arrangements {
             max_fret_span: 0,
         }];
 
-        let arrangements = create_arrangements(Guitar::default(), input_pitches, 1, 0).unwrap();
+        let arrangements = create_arrangements(Guitar::default(), input_pitches, 1).unwrap();
 
         assert_eq!(arrangements, expected_arrangements);
     }
@@ -469,7 +244,7 @@ mod test_create_arrangements {
     fn empty_input() {
         let input_pitches: Vec<Line<BeatVec<Pitch>>> = vec![];
 
-        let arrangements = create_arrangements(Guitar::default(), input_pitches, 2, 0).unwrap();
+        let arrangements = create_arrangements(Guitar::default(), input_pitches, 2).unwrap();
 
         let expected_arrangements: Vec<Arrangement> = vec![
             Arrangement {
@@ -492,7 +267,7 @@ mod test_create_arrangements {
             Line::Rest,
         ];
 
-        let arrangements = create_arrangements(Guitar::default(), input_pitches, 1, 0).unwrap();
+        let arrangements = create_arrangements(Guitar::default(), input_pitches, 1).unwrap();
 
         let expected_arrangements: Vec<Arrangement> = vec![Arrangement {
             lines: vec![
@@ -513,7 +288,7 @@ mod test_create_arrangements {
     fn zero_arrangements_requested() {
         let input_pitches: Vec<Line<BeatVec<Pitch>>> = vec![Line::Playable(vec![Pitch::E4])];
 
-        let error = create_arrangements(Guitar::default(), input_pitches, 0, 0).unwrap_err();
+        let error = create_arrangements(Guitar::default(), input_pitches, 0).unwrap_err();
         let error_msg = format!("{error}");
         assert_eq!(error_msg, "No arrangements were requested.");
     }
@@ -521,7 +296,7 @@ mod test_create_arrangements {
     fn too_many_arrangements_requested() {
         let input_pitches: Vec<Line<BeatVec<Pitch>>> = vec![Line::Playable(vec![Pitch::E4])];
 
-        let error = create_arrangements(Guitar::default(), input_pitches, 22, 0).unwrap_err();
+        let error = create_arrangements(Guitar::default(), input_pitches, 22).unwrap_err();
         let error_msg = format!("{error}");
         assert_eq!(
             error_msg,
@@ -552,14 +327,14 @@ fn validate_fingerings(
         .iter()
         .enumerate()
         .map(|(beat_index, beat_input)| match beat_input {
-            MeasureBreak => MeasureBreak,
-            Rest => Rest,
-            Playable(beat_pitches) => Playable(
+            Line::MeasureBreak => Line::MeasureBreak,
+            Line::Rest => Line::Rest,
+            Line::Playable(beat_pitches) => Line::Playable(
                 beat_pitches
                     .iter()
                     .map(|beat_pitch| {
                         let pitch_fingerings: PitchVec<PitchFingering> =
-                            generate_pitch_fingerings(&guitar.string_ranges, beat_pitch);
+                            generate_pitch_fingerings_for_pitch(&guitar.string_ranges, beat_pitch);
                         if pitch_fingerings.is_empty() {
                             impossible_pitches.push(InvalidInput {
                                 value: format!("{:?}", beat_pitch),
@@ -597,8 +372,8 @@ mod test_validate_fingerings {
     #[test]
     fn valid_simple() {
         let guitar = Guitar::default();
-        let input_pitches = vec![Playable(vec![Pitch::G3])];
-        let expected_fingerings = vec![Playable(vec![generate_pitch_fingerings(
+        let input_pitches = vec![Line::Playable(vec![Pitch::G3])];
+        let expected_fingerings = vec![Line::Playable(vec![generate_pitch_fingerings_for_pitch(
             &guitar.string_ranges,
             &Pitch::G3,
         )])];
@@ -612,26 +387,26 @@ mod test_validate_fingerings {
     fn valid_complex() {
         let guitar = Guitar::default();
         let input_pitches = vec![
-            Playable(vec![Pitch::G3]),
-            MeasureBreak,
-            Playable(vec![Pitch::B3]),
-            Rest,
-            Playable(vec![Pitch::D4, Pitch::G4]),
+            Line::Playable(vec![Pitch::G3]),
+            Line::MeasureBreak,
+            Line::Playable(vec![Pitch::B3]),
+            Line::Rest,
+            Line::Playable(vec![Pitch::D4, Pitch::G4]),
         ];
         let expected_fingerings = vec![
-            Playable(vec![generate_pitch_fingerings(
+            Line::Playable(vec![generate_pitch_fingerings_for_pitch(
                 &guitar.string_ranges,
                 &Pitch::G3,
             )]),
-            MeasureBreak,
-            Playable(vec![generate_pitch_fingerings(
+            Line::MeasureBreak,
+            Line::Playable(vec![generate_pitch_fingerings_for_pitch(
                 &guitar.string_ranges,
                 &Pitch::B3,
             )]),
-            Rest,
-            Playable(vec![
-                generate_pitch_fingerings(&guitar.string_ranges, &Pitch::D4),
-                generate_pitch_fingerings(&guitar.string_ranges, &Pitch::G4),
+            Line::Rest,
+            Line::Playable(vec![
+                generate_pitch_fingerings_for_pitch(&guitar.string_ranges, &Pitch::D4),
+                generate_pitch_fingerings_for_pitch(&guitar.string_ranges, &Pitch::G4),
             ]),
         ];
 
@@ -643,7 +418,7 @@ mod test_validate_fingerings {
     #[test]
     fn invalid_simple() {
         let guitar = Guitar::default();
-        let input_pitches = vec![Playable(vec![Pitch::B9])];
+        let input_pitches = vec![Line::Playable(vec![Pitch::B9])];
 
         let error = validate_fingerings(&guitar, &input_pitches).unwrap_err();
         let error_msg = format!("{error}");
@@ -655,12 +430,12 @@ mod test_validate_fingerings {
     fn invalid_complex() {
         let guitar = Guitar::default();
         let input_pitches = vec![
-            Playable(vec![Pitch::A1]),
-            Playable(vec![Pitch::G3]),
-            Playable(vec![Pitch::B3]),
-            Playable(vec![Pitch::A1, Pitch::B1]),
-            Playable(vec![Pitch::G3, Pitch::D2]),
-            Playable(vec![Pitch::D4, Pitch::G4]),
+            Line::Playable(vec![Pitch::A1]),
+            Line::Playable(vec![Pitch::G3]),
+            Line::Playable(vec![Pitch::B3]),
+            Line::Playable(vec![Pitch::A1, Pitch::B1]),
+            Line::Playable(vec![Pitch::G3, Pitch::D2]),
+            Line::Playable(vec![Pitch::D4, Pitch::G4]),
         ];
 
         let error = validate_fingerings(&guitar, &input_pitches).unwrap_err();
@@ -870,83 +645,12 @@ mod test_no_duplicate_strings {
     }
 }
 
-/// Calculates the difference between the maximum and minimum non-zero
-/// fret numbers in a given vector of fingerings.
-fn calc_fret_span(beat_fingering_candidate: Vec<&PitchFingering>) -> Option<u8> {
-    let beat_fingering_option_fret_numbers = beat_fingering_candidate
-        .iter()
-        .filter(|fingering| fingering.fret != 0)
-        .map(|fingering| fingering.fret);
-
-    let min_non_zero_fret = match beat_fingering_option_fret_numbers.clone().min() {
-        None => return None,
-        Some(fret_num) => fret_num,
-    };
-    let max_non_zero_fret = match beat_fingering_option_fret_numbers.clone().max() {
-        None => unreachable!("A maximum should exist if a minimum exists."),
-        Some(fret_num) => fret_num,
-    };
-
-    Some(max_non_zero_fret - min_non_zero_fret)
-}
-#[cfg(test)]
-mod test_calc_fret_span {
-    use super::*;
-    use crate::string_number::StringNumber;
-
-    #[test]
-    fn simple() {
-        let fingering_1 = PitchFingering {
-            pitch: Pitch::B6,
-            string_number: StringNumber::new(2).unwrap(),
-            fret: 3,
-        };
-
-        assert_eq!(calc_fret_span(vec![&fingering_1]).unwrap(), 0);
-    }
-    #[test]
-    fn complex() {
-        let fingering_1 = PitchFingering {
-            pitch: Pitch::CSharpDFlat2,
-            string_number: StringNumber::new(1).unwrap(),
-            fret: 1,
-        };
-        let fingering_2 = PitchFingering {
-            pitch: Pitch::F4,
-            string_number: StringNumber::new(2).unwrap(),
-            fret: 3,
-        };
-        let fingering_3 = PitchFingering {
-            pitch: Pitch::A5,
-            string_number: StringNumber::new(4).unwrap(),
-            fret: 4,
-        };
-        let fingering_4 = PitchFingering {
-            pitch: Pitch::DSharpEFlat6,
-            string_number: StringNumber::new(11).unwrap(),
-            fret: 0,
-        };
-        let beat_fingering_option: Vec<&PitchFingering> =
-            vec![&fingering_1, &fingering_2, &fingering_3, &fingering_4];
-
-        assert_eq!(calc_fret_span(beat_fingering_option).unwrap(), 3);
-    }
-    #[test]
-    fn empty_input() {
-        assert!(calc_fret_span(vec![]).is_none());
-    }
-}
-
 /// Calculates the next nodes and their costs based on the current node and a
 /// list of all path nodes.
 ///
 /// Returns a vector of tuples, where each tuple contains a `Node` the `i32`
 /// cost of moving to that node.
-fn calc_next_nodes(
-    current_node: &Node,
-    path_nodes: Vec<Node>,
-    open_string_cost: u16,
-) -> Vec<(Node, i32)> {
+fn calc_next_nodes(current_node: &Node, path_nodes: Vec<Node>) -> Vec<(Node, i32)> {
     let next_node_index = match current_node {
         Node::Start => 0,
         Node::Rest { line_index } | Node::Note { line_index, .. } => line_index + 1,
@@ -964,7 +668,7 @@ fn calc_next_nodes(
         .map(|next_node| {
             (
                 next_node.clone(),
-                calculate_node_difficulty(current_node, next_node, open_string_cost),
+                calculate_node_difficulty(current_node, next_node),
             )
         })
         .collect_vec();
@@ -983,7 +687,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.1)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -992,7 +695,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.2)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1001,7 +703,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(1.1)),
                     non_zero_fret_span: 1,
-                    uses_open_string: false,
                 },
             },
             Node::Rest { line_index: 2 },
@@ -1012,7 +713,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1021,7 +721,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false,
                 },
             },
         ]
@@ -1038,7 +737,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.1)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1047,21 +745,15 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(0.2)),
                     non_zero_fret_span: 0,
-                    uses_open_string: false,
                 },
             },
         ]
         .iter()
-        .map(|node| {
-            (
-                node.clone(),
-                calculate_node_difficulty(&current_node, node, 0),
-            )
-        })
+        .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node)))
         .collect_vec();
 
         assert_eq!(
-            calc_next_nodes(&current_node, create_test_path_nodes(), 0),
+            calc_next_nodes(&current_node, create_test_path_nodes()),
             expected_nodes_and_costs
         );
     }
@@ -1073,7 +765,6 @@ mod test_calc_next_nodes {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(0.1)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
 
@@ -1083,20 +774,14 @@ mod test_calc_next_nodes {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(1.1)),
                 non_zero_fret_span: 1,
-                uses_open_string: false,
             },
         }]
         .iter()
-        .map(|node| {
-            (
-                node.clone(),
-                calculate_node_difficulty(&current_node, node, 0),
-            )
-        })
+        .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node)))
         .collect_vec();
 
         assert_eq!(
-            calc_next_nodes(&current_node, create_test_path_nodes(), 0),
+            calc_next_nodes(&current_node, create_test_path_nodes()),
             expected_nodes_and_costs
         );
     }
@@ -1108,22 +793,16 @@ mod test_calc_next_nodes {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(1.1)),
                 non_zero_fret_span: 1,
-                uses_open_string: false,
             },
         };
 
         let expected_nodes_and_costs = [Node::Rest { line_index: 2 }]
             .iter()
-            .map(|node| {
-                (
-                    node.clone(),
-                    calculate_node_difficulty(&current_node, node, 0),
-                )
-            })
+            .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node)))
             .collect_vec();
 
         assert_eq!(
-            calc_next_nodes(&current_node, create_test_path_nodes(), 0),
+            calc_next_nodes(&current_node, create_test_path_nodes()),
             expected_nodes_and_costs
         );
     }
@@ -1133,16 +812,11 @@ mod test_calc_next_nodes {
 
         let expected_nodes_and_costs = [Node::Rest { line_index: 3 }]
             .iter()
-            .map(|node| {
-                (
-                    node.clone(),
-                    calculate_node_difficulty(&current_node, node, 0),
-                )
-            })
+            .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node)))
             .collect_vec();
 
         assert_eq!(
-            calc_next_nodes(&current_node, create_test_path_nodes(), 0),
+            calc_next_nodes(&current_node, create_test_path_nodes()),
             expected_nodes_and_costs
         );
     }
@@ -1157,7 +831,6 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false,
                 },
             },
             Node::Note {
@@ -1166,21 +839,15 @@ mod test_calc_next_nodes {
                     fingering_combo: vec![],
                     avg_non_zero_fret: Some(OrderedFloat(4.1)),
                     non_zero_fret_span: 4,
-                    uses_open_string: false,
                 },
             },
         ]
         .iter()
-        .map(|node| {
-            (
-                node.clone(),
-                calculate_node_difficulty(&current_node, node, 0),
-            )
-        })
+        .map(|node| (node.clone(), calculate_node_difficulty(&current_node, node)))
         .collect_vec();
 
         assert_eq!(
-            calc_next_nodes(&current_node, create_test_path_nodes(), 0),
+            calc_next_nodes(&current_node, create_test_path_nodes()),
             expected_nodes_and_costs
         );
     }
@@ -1191,14 +858,13 @@ mod test_calc_next_nodes {
         calc_next_nodes(
             &Node::Rest { line_index: 3 },
             vec![Node::Rest { line_index: 4 }, Node::Start],
-            0,
         );
     }
 }
 
 /// Calculates the cost of transitioning from one node to another based on the
 /// average fret difference and fret span.
-fn calculate_node_difficulty(current_node: &Node, next_node: &Node, open_string_cost: u16) -> i32 {
+fn calculate_node_difficulty(current_node: &Node, next_node: &Node) -> i32 {
     let current_avg_fret = match current_node {
         Node::Note {
             beat_fingering_combo,
@@ -1207,16 +873,15 @@ fn calculate_node_difficulty(current_node: &Node, next_node: &Node, open_string_
         _ => None,
     };
 
-    let (next_avg_fret, next_fret_span, next_uses_open) = match next_node {
+    let (next_avg_fret, next_fret_span) = match next_node {
         Node::Start => unreachable!("Start should never be a future node."),
-        Node::Rest { .. } => (None, 0.0, false),
+        Node::Rest { .. } => (None, 0.0),
         Node::Note {
             beat_fingering_combo,
             ..
         } => (
             beat_fingering_combo.avg_non_zero_fret,
             beat_fingering_combo.non_zero_fret_span as f32,
-            beat_fingering_combo.uses_open_string,
         ),
     };
 
@@ -1227,10 +892,6 @@ fn calculate_node_difficulty(current_node: &Node, next_node: &Node, open_string_
     }
 
     ((avg_fret_difference * 100.0)
-        + match next_uses_open {
-            true => open_string_cost as f32,
-            false => 0.0,
-        }
         + (next_fret_span * 10.0)
         + (next_avg_fret.unwrap_or(OrderedFloat(0.0))).into_inner()) as i32
 }
@@ -1246,7 +907,6 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1255,11 +915,10 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
 
-        assert_eq!(calculate_node_difficulty(&current_node, &next_node, 0), 3);
+        assert_eq!(calculate_node_difficulty(&current_node, &next_node), 3);
     }
     #[test]
     fn simple_from_start() {
@@ -1269,11 +928,10 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
 
-        assert_eq!(calculate_node_difficulty(&Node::Start, &next_node, 0), 3);
+        assert_eq!(calculate_node_difficulty(&Node::Start, &next_node), 3);
     }
     #[test]
     fn simple_from_rest() {
@@ -1283,12 +941,11 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
 
         assert_eq!(
-            calculate_node_difficulty(&Node::Rest { line_index: 0 }, &next_node, 0),
+            calculate_node_difficulty(&Node::Rest { line_index: 0 }, &next_node),
             3
         );
     }
@@ -1300,12 +957,11 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.5)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
 
         assert_eq!(
-            calculate_node_difficulty(&current_node, &Node::Rest { line_index: 1 }, 0),
+            calculate_node_difficulty(&current_node, &Node::Rest { line_index: 1 }),
             0
         );
     }
@@ -1317,7 +973,6 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.0)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1326,11 +981,10 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(1.6)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
 
-        assert_eq!(calculate_node_difficulty(&current_node, &next_node, 0), 141);
+        assert_eq!(calculate_node_difficulty(&current_node, &next_node), 141);
     }
     #[test]
     fn simple_fret_span() {
@@ -1340,7 +994,6 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(4.133333)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1349,11 +1002,10 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(4.133333)),
                 non_zero_fret_span: 3,
-                uses_open_string: false,
             },
         };
 
-        assert_eq!(calculate_node_difficulty(&current_node, &next_node, 0), 34);
+        assert_eq!(calculate_node_difficulty(&current_node, &next_node), 34);
     }
     #[test]
     fn compound() {
@@ -1363,7 +1015,6 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(5.0)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1372,11 +1023,10 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(2.0)),
                 non_zero_fret_span: 5,
-                uses_open_string: false,
             },
         };
 
-        assert_eq!(calculate_node_difficulty(&current_node, &next_node, 0), 352);
+        assert_eq!(calculate_node_difficulty(&current_node, &next_node), 352);
     }
     #[test]
     fn complex() {
@@ -1386,7 +1036,6 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(7.3333333)),
                 non_zero_fret_span: 0,
-                uses_open_string: false,
             },
         };
         let next_node = Node::Note {
@@ -1395,11 +1044,10 @@ mod test_calculate_node_difficulty {
                 fingering_combo: vec![],
                 avg_non_zero_fret: Some(OrderedFloat(3.6666666)),
                 non_zero_fret_span: 4,
-                uses_open_string: false,
             },
         };
 
-        assert_eq!(calculate_node_difficulty(&current_node, &next_node, 0), 410);
+        assert_eq!(calculate_node_difficulty(&current_node, &next_node), 410);
     }
 }
 
@@ -1460,7 +1108,6 @@ mod test_process_path {
             }],
             avg_non_zero_fret: Some(OrderedFloat(3.0)),
             non_zero_fret_span: 0,
-            uses_open_string: false,
         };
 
         let path_nodes = vec![
@@ -1474,7 +1121,9 @@ mod test_process_path {
         let arrangement = process_path(path_nodes, 123, vec![]);
 
         let expected_arrangement = Arrangement {
-            lines: vec![Playable(placeholder_beat_fingering_combo.fingering_combo)],
+            lines: vec![Line::Playable(
+                placeholder_beat_fingering_combo.fingering_combo,
+            )],
             difficulty: 123,
             max_fret_span: 0,
         };
@@ -1491,7 +1140,6 @@ mod test_process_path {
             }],
             avg_non_zero_fret: Some(OrderedFloat(3.0)),
             non_zero_fret_span: 4,
-            uses_open_string: false,
         };
 
         let path_nodes = vec![
@@ -1519,15 +1167,15 @@ mod test_process_path {
 
         let expected_arrangement = Arrangement {
             lines: vec![
-                MeasureBreak,
-                Playable(placeholder_beat_fingering_combo.clone().fingering_combo),
-                MeasureBreak,
-                Playable(placeholder_beat_fingering_combo.clone().fingering_combo),
-                Rest,
-                MeasureBreak,
-                Playable(placeholder_beat_fingering_combo.clone().fingering_combo),
-                MeasureBreak,
-                Playable(placeholder_beat_fingering_combo.fingering_combo),
+                Line::MeasureBreak,
+                Line::Playable(placeholder_beat_fingering_combo.clone().fingering_combo),
+                Line::MeasureBreak,
+                Line::Playable(placeholder_beat_fingering_combo.clone().fingering_combo),
+                Line::Rest,
+                Line::MeasureBreak,
+                Line::Playable(placeholder_beat_fingering_combo.clone().fingering_combo),
+                Line::MeasureBreak,
+                Line::Playable(placeholder_beat_fingering_combo.fingering_combo),
             ],
             difficulty: 321,
             max_fret_span: 4,

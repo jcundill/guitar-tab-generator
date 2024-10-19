@@ -28,7 +28,6 @@ fn main() {
         width: 55,
         padding: 2,
         playback_index: Some(12),
-        open_string_cost: 0,
     };
 
     let compositions = guitar_tab_generator::wrapper_create_arrangements(input).unwrap();

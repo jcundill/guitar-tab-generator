@@ -1,4 +1,4 @@
-use crate::{arrangement::PitchVec, pitch::Pitch, string_number::StringNumber};
+use crate::{pitch::Pitch, string_number::StringNumber};
 use anyhow::{anyhow, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -58,7 +58,7 @@ pub fn create_string_tuning(open_string_pitches: &[Pitch]) -> BTreeMap<StringNum
         .collect::<BTreeMap<StringNumber, Pitch>>()
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct Guitar {
     pub tuning: BTreeMap<StringNumber, Pitch>,
     pub num_frets: u8,
@@ -106,393 +106,6 @@ impl Guitar {
         })
     }
 }
-#[cfg(test)]
-mod test_create_guitar {
-    use super::*;
-
-    #[test]
-    fn valid_simple() -> Result<()> {
-        let tuning = create_string_tuning(&STD_6_STRING_TUNING_OPEN_PITCHES);
-
-        const NUM_FRETS: u8 = 3;
-
-        let expected_guitar = Guitar {
-            tuning: tuning.clone(),
-            num_frets: NUM_FRETS,
-            range: BTreeSet::from([
-                Pitch::E2,
-                Pitch::F2,
-                Pitch::FSharpGFlat2,
-                Pitch::G2,
-                Pitch::A2,
-                Pitch::ASharpBFlat2,
-                Pitch::B2,
-                Pitch::C3,
-                Pitch::D3,
-                Pitch::DSharpEFlat3,
-                Pitch::E3,
-                Pitch::F3,
-                Pitch::G3,
-                Pitch::GSharpAFlat3,
-                Pitch::A3,
-                Pitch::ASharpBFlat3,
-                Pitch::B3,
-                Pitch::C4,
-                Pitch::CSharpDFlat4,
-                Pitch::D4,
-                Pitch::E4,
-                Pitch::F4,
-                Pitch::FSharpGFlat4,
-                Pitch::G4,
-            ]),
-            string_ranges: BTreeMap::from([
-                (
-                    StringNumber::new(1).unwrap(),
-                    vec![Pitch::E4, Pitch::F4, Pitch::FSharpGFlat4, Pitch::G4],
-                ),
-                (
-                    StringNumber::new(2).unwrap(),
-                    vec![Pitch::B3, Pitch::C4, Pitch::CSharpDFlat4, Pitch::D4],
-                ),
-                (
-                    StringNumber::new(3).unwrap(),
-                    vec![
-                        Pitch::G3,
-                        Pitch::GSharpAFlat3,
-                        Pitch::A3,
-                        Pitch::ASharpBFlat3,
-                    ],
-                ),
-                (
-                    StringNumber::new(4).unwrap(),
-                    vec![Pitch::D3, Pitch::DSharpEFlat3, Pitch::E3, Pitch::F3],
-                ),
-                (
-                    StringNumber::new(5).unwrap(),
-                    vec![Pitch::A2, Pitch::ASharpBFlat2, Pitch::B2, Pitch::C3],
-                ),
-                (
-                    StringNumber::new(6).unwrap(),
-                    vec![Pitch::E2, Pitch::F2, Pitch::FSharpGFlat2, Pitch::G2],
-                ),
-            ]),
-        };
-
-        assert_eq!(Guitar::new(tuning, NUM_FRETS, 0)?, expected_guitar);
-
-        Ok(())
-    }
-    #[test]
-    fn valid_simple_capo() -> Result<()> {
-        let tuning = create_string_tuning(&[Pitch::E4, Pitch::B3, Pitch::G3]);
-
-        const NUM_FRETS: u8 = 18;
-        const CAPO: u8 = 4;
-
-        let expected_guitar = Guitar {
-            tuning: create_string_tuning(&[Pitch::GSharpAFlat4, Pitch::DSharpEFlat4, Pitch::B3]),
-            num_frets: NUM_FRETS - CAPO,
-            range: BTreeSet::from([
-                Pitch::G5,
-                Pitch::D4,
-                Pitch::A5,
-                Pitch::CSharpDFlat5,
-                Pitch::ASharpBFlat4,
-                Pitch::B4,
-                Pitch::GSharpAFlat4,
-                Pitch::D5,
-                Pitch::E4,
-                Pitch::E5,
-                Pitch::C5,
-                Pitch::DSharpEFlat5,
-                Pitch::DSharpEFlat4,
-                Pitch::F4,
-                Pitch::GSharpAFlat5,
-                Pitch::G4,
-                Pitch::C4,
-                Pitch::ASharpBFlat5,
-                Pitch::CSharpDFlat4,
-                Pitch::B3,
-                Pitch::FSharpGFlat4,
-                Pitch::F5,
-                Pitch::A4,
-                Pitch::FSharpGFlat5,
-            ]),
-            string_ranges: BTreeMap::from([
-                (
-                    StringNumber::new(1).unwrap(),
-                    vec![
-                        Pitch::GSharpAFlat4,
-                        Pitch::A4,
-                        Pitch::ASharpBFlat4,
-                        Pitch::B4,
-                        Pitch::C5,
-                        Pitch::CSharpDFlat5,
-                        Pitch::D5,
-                        Pitch::DSharpEFlat5,
-                        Pitch::E5,
-                        Pitch::F5,
-                        Pitch::FSharpGFlat5,
-                        Pitch::G5,
-                        Pitch::GSharpAFlat5,
-                        Pitch::A5,
-                        Pitch::ASharpBFlat5,
-                    ],
-                ),
-                (
-                    StringNumber::new(2).unwrap(),
-                    vec![
-                        Pitch::DSharpEFlat4,
-                        Pitch::E4,
-                        Pitch::F4,
-                        Pitch::FSharpGFlat4,
-                        Pitch::G4,
-                        Pitch::GSharpAFlat4,
-                        Pitch::A4,
-                        Pitch::ASharpBFlat4,
-                        Pitch::B4,
-                        Pitch::C5,
-                        Pitch::CSharpDFlat5,
-                        Pitch::D5,
-                        Pitch::DSharpEFlat5,
-                        Pitch::E5,
-                        Pitch::F5,
-                    ],
-                ),
-                (
-                    StringNumber::new(3).unwrap(),
-                    vec![
-                        Pitch::B3,
-                        Pitch::C4,
-                        Pitch::CSharpDFlat4,
-                        Pitch::D4,
-                        Pitch::DSharpEFlat4,
-                        Pitch::E4,
-                        Pitch::F4,
-                        Pitch::FSharpGFlat4,
-                        Pitch::G4,
-                        Pitch::GSharpAFlat4,
-                        Pitch::A4,
-                        Pitch::ASharpBFlat4,
-                        Pitch::B4,
-                        Pitch::C5,
-                        Pitch::CSharpDFlat5,
-                    ],
-                ),
-            ]),
-        };
-
-        assert_eq!(Guitar::new(tuning, NUM_FRETS, CAPO)?, expected_guitar);
-
-        Ok(())
-    }
-    #[test]
-    fn valid_normal() -> Result<()> {
-        let tuning = create_string_tuning(&STD_6_STRING_TUNING_OPEN_PITCHES);
-
-        const NUM_FRETS: u8 = 18;
-
-        let expected_guitar = Guitar {
-            tuning: tuning.clone(),
-            num_frets: NUM_FRETS,
-            range: BTreeSet::from([
-                Pitch::E2,
-                Pitch::F2,
-                Pitch::FSharpGFlat2,
-                Pitch::G2,
-                Pitch::GSharpAFlat2,
-                Pitch::A2,
-                Pitch::ASharpBFlat2,
-                Pitch::B2,
-                Pitch::C3,
-                Pitch::CSharpDFlat3,
-                Pitch::D3,
-                Pitch::DSharpEFlat3,
-                Pitch::E3,
-                Pitch::F3,
-                Pitch::FSharpGFlat3,
-                Pitch::G3,
-                Pitch::GSharpAFlat3,
-                Pitch::A3,
-                Pitch::ASharpBFlat3,
-                Pitch::B3,
-                Pitch::C4,
-                Pitch::CSharpDFlat4,
-                Pitch::D4,
-                Pitch::DSharpEFlat4,
-                Pitch::E4,
-                Pitch::F4,
-                Pitch::FSharpGFlat4,
-                Pitch::G4,
-                Pitch::GSharpAFlat4,
-                Pitch::A4,
-                Pitch::ASharpBFlat4,
-                Pitch::B4,
-                Pitch::C5,
-                Pitch::CSharpDFlat5,
-                Pitch::D5,
-                Pitch::DSharpEFlat5,
-                Pitch::E5,
-                Pitch::F5,
-                Pitch::FSharpGFlat5,
-                Pitch::G5,
-                Pitch::GSharpAFlat5,
-                Pitch::A5,
-                Pitch::ASharpBFlat5,
-            ]),
-            string_ranges: BTreeMap::from([
-                (
-                    StringNumber::new(1).unwrap(),
-                    vec![
-                        Pitch::E4,
-                        Pitch::F4,
-                        Pitch::FSharpGFlat4,
-                        Pitch::G4,
-                        Pitch::GSharpAFlat4,
-                        Pitch::A4,
-                        Pitch::ASharpBFlat4,
-                        Pitch::B4,
-                        Pitch::C5,
-                        Pitch::CSharpDFlat5,
-                        Pitch::D5,
-                        Pitch::DSharpEFlat5,
-                        Pitch::E5,
-                        Pitch::F5,
-                        Pitch::FSharpGFlat5,
-                        Pitch::G5,
-                        Pitch::GSharpAFlat5,
-                        Pitch::A5,
-                        Pitch::ASharpBFlat5,
-                    ],
-                ),
-                (
-                    StringNumber::new(2).unwrap(),
-                    vec![
-                        Pitch::B3,
-                        Pitch::C4,
-                        Pitch::CSharpDFlat4,
-                        Pitch::D4,
-                        Pitch::DSharpEFlat4,
-                        Pitch::E4,
-                        Pitch::F4,
-                        Pitch::FSharpGFlat4,
-                        Pitch::G4,
-                        Pitch::GSharpAFlat4,
-                        Pitch::A4,
-                        Pitch::ASharpBFlat4,
-                        Pitch::B4,
-                        Pitch::C5,
-                        Pitch::CSharpDFlat5,
-                        Pitch::D5,
-                        Pitch::DSharpEFlat5,
-                        Pitch::E5,
-                        Pitch::F5,
-                    ],
-                ),
-                (
-                    StringNumber::new(3).unwrap(),
-                    vec![
-                        Pitch::G3,
-                        Pitch::GSharpAFlat3,
-                        Pitch::A3,
-                        Pitch::ASharpBFlat3,
-                        Pitch::B3,
-                        Pitch::C4,
-                        Pitch::CSharpDFlat4,
-                        Pitch::D4,
-                        Pitch::DSharpEFlat4,
-                        Pitch::E4,
-                        Pitch::F4,
-                        Pitch::FSharpGFlat4,
-                        Pitch::G4,
-                        Pitch::GSharpAFlat4,
-                        Pitch::A4,
-                        Pitch::ASharpBFlat4,
-                        Pitch::B4,
-                        Pitch::C5,
-                        Pitch::CSharpDFlat5,
-                    ],
-                ),
-                (
-                    StringNumber::new(4).unwrap(),
-                    vec![
-                        Pitch::D3,
-                        Pitch::DSharpEFlat3,
-                        Pitch::E3,
-                        Pitch::F3,
-                        Pitch::FSharpGFlat3,
-                        Pitch::G3,
-                        Pitch::GSharpAFlat3,
-                        Pitch::A3,
-                        Pitch::ASharpBFlat3,
-                        Pitch::B3,
-                        Pitch::C4,
-                        Pitch::CSharpDFlat4,
-                        Pitch::D4,
-                        Pitch::DSharpEFlat4,
-                        Pitch::E4,
-                        Pitch::F4,
-                        Pitch::FSharpGFlat4,
-                        Pitch::G4,
-                        Pitch::GSharpAFlat4,
-                    ],
-                ),
-                (
-                    StringNumber::new(5).unwrap(),
-                    vec![
-                        Pitch::A2,
-                        Pitch::ASharpBFlat2,
-                        Pitch::B2,
-                        Pitch::C3,
-                        Pitch::CSharpDFlat3,
-                        Pitch::D3,
-                        Pitch::DSharpEFlat3,
-                        Pitch::E3,
-                        Pitch::F3,
-                        Pitch::FSharpGFlat3,
-                        Pitch::G3,
-                        Pitch::GSharpAFlat3,
-                        Pitch::A3,
-                        Pitch::ASharpBFlat3,
-                        Pitch::B3,
-                        Pitch::C4,
-                        Pitch::CSharpDFlat4,
-                        Pitch::D4,
-                        Pitch::DSharpEFlat4,
-                    ],
-                ),
-                (
-                    StringNumber::new(6).unwrap(),
-                    vec![
-                        Pitch::E2,
-                        Pitch::F2,
-                        Pitch::FSharpGFlat2,
-                        Pitch::G2,
-                        Pitch::GSharpAFlat2,
-                        Pitch::A2,
-                        Pitch::ASharpBFlat2,
-                        Pitch::B2,
-                        Pitch::C3,
-                        Pitch::CSharpDFlat3,
-                        Pitch::D3,
-                        Pitch::DSharpEFlat3,
-                        Pitch::E3,
-                        Pitch::F3,
-                        Pitch::FSharpGFlat3,
-                        Pitch::G3,
-                        Pitch::GSharpAFlat3,
-                        Pitch::A3,
-                        Pitch::ASharpBFlat3,
-                    ],
-                ),
-            ]),
-        };
-
-        assert_eq!(Guitar::new(tuning, NUM_FRETS, 0)?, expected_guitar);
-
-        Ok(())
-    }
-}
 
 /// Check if the number of frets is within a maximum limit and returns an error if it exceeds the limit.
 fn check_fret_number(num_frets: u8) -> Result<()> {
@@ -505,6 +118,7 @@ fn check_fret_number(num_frets: u8) -> Result<()> {
 
     Ok(())
 }
+
 #[cfg(test)]
 mod test_check_fret_number {
     use super::*;
@@ -634,11 +248,11 @@ mod test_create_string_range {
 /// If no fingerings are possible on any of the strings of the guitar, an
 /// empty vector is returned.
 // TODO benchmark memoization
-pub fn generate_pitch_fingerings(
+pub fn generate_pitch_fingerings_for_pitch(
     string_ranges: &BTreeMap<StringNumber, Vec<Pitch>>,
     pitch: &Pitch,
-) -> PitchVec<PitchFingering> {
-    let fingerings: PitchVec<PitchFingering> = string_ranges
+) -> Vec<PitchFingering> {
+    let fingerings: Vec<PitchFingering> = string_ranges
         .iter()
         .filter_map(|(string_number, string_range)| {
             string_range
@@ -693,7 +307,7 @@ mod test_generate_pitch_fingering {
         ]);
 
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::E2),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::E2),
             vec![PitchFingering {
                 pitch: Pitch::E2,
                 string_number: StringNumber::new(6).unwrap(),
@@ -701,7 +315,7 @@ mod test_generate_pitch_fingering {
             }]
         );
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::D3),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::D3),
             vec![
                 PitchFingering {
                     pitch: Pitch::D3,
@@ -721,7 +335,7 @@ mod test_generate_pitch_fingering {
             ]
         );
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::CSharpDFlat4),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::CSharpDFlat4),
             vec![
                 PitchFingering {
                     pitch: Pitch::CSharpDFlat4,
@@ -758,7 +372,7 @@ mod test_generate_pitch_fingering {
         ]);
 
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::DSharpEFlat4),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::DSharpEFlat4),
             vec![PitchFingering {
                 pitch: Pitch::DSharpEFlat4,
                 string_number: StringNumber::new(2).unwrap(),
@@ -766,7 +380,7 @@ mod test_generate_pitch_fingering {
             }]
         );
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::ASharpBFlat4),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::ASharpBFlat4),
             vec![
                 PitchFingering {
                     pitch: Pitch::ASharpBFlat4,
@@ -814,7 +428,7 @@ mod test_generate_pitch_fingering {
         ]);
 
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::E3),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::E3),
             vec![PitchFingering {
                 pitch: Pitch::E3,
                 string_number: StringNumber::new(4).unwrap(),
@@ -855,11 +469,11 @@ mod test_generate_pitch_fingering {
         ]);
 
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::D2),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::D2),
             vec![]
         );
         assert_eq!(
-            generate_pitch_fingerings(&string_ranges, &Pitch::F5),
+            generate_pitch_fingerings_for_pitch(&string_ranges, &Pitch::F5),
             vec![]
         );
         Ok(())

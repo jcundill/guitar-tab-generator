@@ -3,7 +3,8 @@
 use anyhow::{anyhow, Result};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use guitar_tab_generator::{
-    arrangement::{self, create_arrangements, BeatVec, Line},
+    arrangement::{self, create_arrangements},
+    composition::{BeatVec, Line},
     guitar::{create_string_tuning, Guitar, STD_6_STRING_TUNING_OPEN_PITCHES},
     parser::parse_lines,
     pitch::Pitch,
@@ -187,7 +188,6 @@ fn bench_arrangement_creation(c: &mut Criterion) {
                 black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                 black_box(fur_elise_lines()),
                 black_box(1),
-                0,
             )
         })
     });
@@ -197,7 +197,6 @@ fn bench_arrangement_creation(c: &mut Criterion) {
                 black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                 black_box(fur_elise_lines()),
                 black_box(3),
-                0,
             )
         })
     });
@@ -207,7 +206,6 @@ fn bench_arrangement_creation(c: &mut Criterion) {
                 black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                 black_box(fur_elise_lines()),
                 black_box(5),
-                0,
             )
         })
     });
@@ -227,7 +225,6 @@ fn bench_arrangement_scaling(c: &mut Criterion) {
                     black_box(Guitar::new(tuning.clone(), 18, 0).unwrap()),
                     black_box(fur_elise_lines()),
                     black_box(num),
-                    0,
                 )
             });
         });
@@ -242,7 +239,6 @@ fn bench_render_tab(c: &mut Criterion) {
         Guitar::default(),
         parse_lines(fur_elise_input().to_owned()).unwrap(),
         1,
-        0,
     )
     .unwrap();
 
@@ -281,7 +277,6 @@ fn bench_create_single_composition_scaling(c: &mut Criterion) {
             width: 40,
             padding: 2,
             playback_index: Some(12),
-            open_string_cost: 0,
         };
 
         // group
@@ -312,7 +307,6 @@ fn bench_create_single_composition_large_scaling(c: &mut Criterion) {
             width: 40,
             padding: 2,
             playback_index: Some(12),
-            open_string_cost: 0,
         };
 
         // group

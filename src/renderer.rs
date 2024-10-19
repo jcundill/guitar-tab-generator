@@ -1,5 +1,5 @@
 use crate::{
-    arrangement::{BeatVec, Line},
+    composition::{BeatVec, Line},
     guitar::{Guitar, PitchFingering},
 };
 use itertools::Itertools;
@@ -466,7 +466,7 @@ mod test_calc_fret_width_max {
     }
 }
 
-fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
+pub fn transpose<T>(v: Vec<Vec<T>>) -> Vec<Vec<T>> {
     assert!(!v.is_empty());
     let len = v[0].len();
     let mut iters: Vec<_> = v.into_iter().map(|n| n.into_iter()).collect();

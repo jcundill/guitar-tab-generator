@@ -1,5 +1,5 @@
 use crate::{
-    arrangement::{BeatVec, Line},
+    composition::{BeatVec, Line},
     guitar::{create_string_tuning, STD_6_STRING_TUNING_OPEN_PITCHES},
     pitch::Pitch,
     string_number::StringNumber,

@@ -102,7 +102,6 @@ fn main() {
         width: 100,
         padding: 2,
         playback_index: Some(1),
-        open_string_cost: 1000,
     };
 
     let comp = wrapper_create_arrangements(comp).unwrap();

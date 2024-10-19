@@ -1,0 +1,147 @@
+
+We don't care about using the open position -- don't use that unless there is no alternative
+
+The goal is to move the hand up and down as little as possible - i.e. stay in the same box
+
+the fingerings for a box are:
+
+i-shift
+i
+m
+a 
+p
+p-shift
+
+a box has a start fret that corresponds to an 'i' fingering
+a box has an extent that goes from i-shift to p-shift
+a fingering is in_box if it lies within this extent
+
+any fretted note can have up to 6 fingerings, each one corresponding to each of the frets within the extent of that box
+
+a fretted note on the first fret only has 2 fingerings -- i and i-shift
+a fretted note on the 2nd fret has 3 fingerings -- m, i and i-shift
+a fretted note on the 3rd fret has 4 fingerings == a, m. i and i-shift
+a fretted note on the 4th fret has 5 fingerings == p, a, m , i and i-shift
+a fretted note on anything above the 4th fret has all the fingerings
+
+
+With Single Notes the positions within the box become associated with the fingers
+Subsequent single note will be in the box and can be played on any of the four fingers for some of the fingerings of the previous note
+etc
+
+String/fret - eg 6/5 -- A2
+
+Note 1 is 6/5, Note 2 is B2
+
+B2 is 6/7 or 5/2
+
+6/5 - 6/7 is in box i=3 - extent = 2 - 7 = a - p-shift
+6/5 - 6/7 is in box i=4 - extent = 3 - 8 = m - p
+6/5 - 6/7 is in box i=5 - extent = 4 - 9 = i - a
+6/5 - 6/7 is in box i=6 - extent = 5 - 10 = i-shift - m
+
+6/5 - 5/2 is in box i=2 - extent = 1 - 6 = p - i
+6/5 - 5/2 is in box i=3 - extent = 2 - 7 = a - i-shift
+6/5 - 5/2 is in box i=1 - extent = 0 - 6 = p-shift - m
+
+Note 3 is A3 
+A3 is 3/2 or 4/7 or 5/12
+
+5/12 is always out of box
+
+4/7 is in box for:
+i=3 - p-shift
+i=4 - p
+i=5 - a
+i=6 - m
+
+3/2 is in box for 
+i=1 - m
+i=2 - i
+i=3 - i-shift
+
+we don't play open strings
+
+For chords -- (chord fingering rules are not the same as single note box fingering rules
+    -- play G on the 6th string with i at the 3rd fret in GM7, yet still expect i to handle the 2nd and 1st frets for a single note line)
+    we reject multi note fingerings that use a box greater than X (probably 5) frets -- unplayable
+    we prefer the remaining fingerings which are within or nearest to the current box over those that are further away from the current box
+
+
+we care -- cost function -- if we need to start playing in a new box - for chords or single lines
+
+any box shift probably has a cost related to the extent of that shift, but is also related to how long we stay in that new box
+
+so for each fingering of the first note
+    start off with 6 boxes and try and get to the end whilst staying in one of those boxes.
+    if possible - we are done for this fingering
+    and it has a 0 score
+
+
+If multiple choices remain, prefer the one which minimises i-shifts and p-shifts and then prefer the one nearest the 5th fret from those remaining
+
+so
+
+Do the permutations (as existing in the codebase) for all the notes in the line
+
+then find the collection of fingerings that minimise the nmber of box shifts
+
+
+
+so - path traversal, 
+while I am playing in the box the cost is 0
+if I have to shift the box, 
+    there is a cost associated with shifting 
+    and I need to start pathfinding from the framework of this new box rather than from the previous one.
+
+
+
+from a fingered_note I can get a set of boxes
+a box has an extent and is identified by the fret corresponding to the placement of 'i'
+
+
+so 
+
+pathfinding, A* or Yen, etc. based on boxes
+
+input -> Seq<Beat>
+
+Beat -> Seq<Note>
+
+Note -> Seq<PitchFingering>
+
+PitchFingering -> Seq<BoxFingering>
+
+So, 
+
+Beat -> Seq<Seq<Seq<BoxFingering>>>
+
+We can flatten the fingerings for each of the PitchFingerings for this note -- there won't be duplicates
+    --- you can play this pitch on the 3rd string like this, or the 4th string like this -- where this describes the finger used 
+
+Beat -> Seq<Seq<BoxFingering>> -- which is the Seq of all the box fingerings for each note played on this beat
+
+dijkstra flattens this, by scoring beat transition costs, to
+
+Beat -> Seq<BoxFingering> -- the best set of box fingerings to play on this beat -- might be 0, 1 or more
+
+output -> Seq<Seq<BoxFingering>> - the Seq of best box fingerings to play on each beat of the input
+
+If Seq<BoxFingering> for a given beat is_empty, then it is either a Rest or a MeasureBreak 
+- input at this beat will tell us which and we need to convert to the Node<PitchFingering> equivalent
+else 
+    we need to convert the Seq<BoxFingering> back into a Seq<Playable<PitchFingering>>
+
+we can then pass this to render
+
+how do we determine the beat transition costs needed by dijkstra?
+    -- there are a number of factors - some are related to single notes, and some to chords
+    -- for single notes
+        -- do I need to move my hand up or down the fretboard -- box shift
+        -- do I need to use an index shift or a pinky shift -- box fingering 
+        -- do I need to jump the same finger between strings -- adjacent is ok, skipping is hard unless barred
+    -- for chords
+        -- fret span -- is it actually playable
+        -- index shift -- less important, but are we in the same alternative
+        --
+
