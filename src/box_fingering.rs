@@ -1,17 +1,9 @@
 use std::{borrow::Borrow, fmt::Debug};
 
-use guitar_tab_generator::{
-    composition::Line,
-    guitar::{generate_pitch_fingerings_for_pitch, Guitar, PitchFingering},
-    parser::parse_lines,
-    pitch::Pitch,
-    renderer::{render_tab, transpose},
-    string_number::StringNumber,
-};
 use itertools::Itertools;
 use pathfinding::prelude::dijkstra;
 
-extern crate guitar_tab_generator;
+use crate::{composition::Line, guitar::{generate_pitch_fingerings_for_pitch, Guitar, PitchFingering}, parser::parse_lines, pitch::Pitch, renderer::{render_tab, transpose}, string_number::StringNumber};
 
 type Grip = Vec<BoxFingering>;
 type PossibleFingerings = Vec<BoxFingering>;
@@ -34,24 +26,75 @@ pub struct BoxFingering {
     string: u8,
 }
 
-pub fn main() {
-    let input = "C3
-    D3
-    E3
-    F3
-    G3
-    A3
-    B3
-    C4
-    D4
-    E4
-    F4
-    G4
-    A4
-    B4
-    C5"
-    .to_string();
+#[cfg(test)]
+mod test_it_out {
+    use super::create_arrangements;
 
+    #[test]
+    fn test_major_scale() {
+        let input = "C3
+        D3
+        E3
+        F3
+        G3
+        A3
+        B3
+        C4
+        D4
+        E4
+        F4
+        G4
+        A4
+        B4
+        C5"
+        .to_string();
+    
+        create_arrangements(input);            
+    }
+
+    #[test]
+    fn test_diatonic_arps() {
+        let input = "C3
+        E3
+        G3
+        B3
+        -
+        D3
+        F3
+        A3
+        C4
+        -
+        E3
+        G3
+        B3
+        D4
+        -
+        F3
+        A3
+        C4
+        E4
+        -
+        G3
+        B3
+        D4
+        F4
+        -
+        A3
+        C4
+        E4
+        G4
+        -
+        B3
+        D4
+        F4
+        A4".to_string();
+
+        create_arrangements(input);            
+    }
+
+}
+
+pub fn create_arrangements(input: String) {
     let lines: Vec<Line<Vec<Pitch>>> = parse_lines(input).ok().unwrap();
     let last_line_idx = (lines.len() - 1) as u8;
 
@@ -90,8 +133,6 @@ pub fn main() {
     for solution in ordered_results { 
         print_tab_for_solution(solution, lines.clone(), guitar.clone());
     }
-    
-
 }
 
 fn print_tab_for_solution(solution: &(Vec<Vec<BoxFingering>>, i32), lines: Vec<Line<Vec<Pitch>>>, guitar: Guitar) {
@@ -200,7 +241,7 @@ fn get_playable_fingerings_for_line(
 
 #[cfg(test)]
 mod test_get_playable_fingerings {
-    use crate::get_playable_fingerings_for_line;
+
 
     #[test]
     fn test_simple() {
@@ -213,13 +254,6 @@ mod test_get_playable_fingerings {
 
         // Vec of all the possible fingerings for each of the notes on each line
         let possible_box_fingerings = convert_lines(&guitar, &lines);
-
-        let grip = vec![BoxFingering {
-            line_idx: 0,
-            position: 1,
-            finger: 1,
-            string: 1,
-        }];
 
         // vec of all the possible fingerings for each of the notes in the first line
         // this is the fingers for a C#
@@ -238,7 +272,7 @@ fn at_end(p: &Grip, last_line_idx: u8) -> bool {
 #[cfg(test)]
 mod test_convert {
     use super::*;
-    use crate::convert_lines;
+    use super::convert_lines;
 
     #[test]
     fn test_it() {
@@ -330,9 +364,8 @@ fn convert_beat_to_possible_fingerings(
 
 #[cfg(test)]
 mod test_convert_it {
-    use guitar_tab_generator::{guitar::PitchFingering, pitch::Pitch, string_number::StringNumber};
+    use crate::{box_fingering::{convert_pitch_fingering_to_box_fingering, BoxFingering}, guitar::PitchFingering, pitch::Pitch, string_number::StringNumber};
 
-    use crate::{convert_pitch_fingering_to_box_fingering, BoxFingering};
 
     #[test]
     fn test_simple() {

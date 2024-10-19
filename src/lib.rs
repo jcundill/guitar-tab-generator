@@ -13,6 +13,7 @@ pub mod parser;
 pub mod pitch;
 pub mod renderer;
 pub mod string_number;
+pub mod box_fingering;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompositionInput {
