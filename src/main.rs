@@ -94,7 +94,7 @@ fn main() {
     .to_owned();
 
     let comp: CompositionInput = CompositionInput {
-        pitches: pitches,
+        pitches,
         guitar_capo: 0,
         guitar_num_frets: 18,
         tuning_name: "standard".to_owned(),
