@@ -53,9 +53,9 @@ fn main() -> Result<()> {
     let padding = 1;
     let playback_index = Some(2);
 
-    for i in 0..19 {
+    for item in arrangements.iter().take(19) {
         let tab = render_tab(
-            &arrangements[i].lines,
+            &item.lines,
             &guitar,
             tab_width,
             padding,

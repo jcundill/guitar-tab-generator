@@ -42,7 +42,14 @@ pub fn main() {
     G3
     A3
     B3
-    C4"
+    C4
+    D4
+    E4
+    F4
+    G4
+    A4
+    B4
+    C5"
     .to_string();
 
     let lines: Vec<Line<Vec<Pitch>>> = parse_lines(input).ok().unwrap();
@@ -76,20 +83,27 @@ pub fn main() {
         if let Some(solution) = result {
             results.push(solution)
         }
-
-        let best_result = results.iter().max_by(|a, b| a.1.cmp(&b.1));
-
-        if let Some(solution) = best_result {
-            let pitch_fingerings = convert_to_pitch_fingering(solution.0.clone(), lines.clone());
-
-            let width = 60;
-            let padding = 2;
-            let playback = None;
-            let tab = render_tab(&pitch_fingerings, &guitar, width, padding, playback);
-
-            println!("{}", tab);
-        }
     }
+
+    let ordered_results = results.iter().sorted_by(|a, b| a.1.cmp(&b.1)).collect_vec();
+
+    for solution in ordered_results { 
+        print_tab_for_solution(solution, lines.clone(), guitar.clone());
+    }
+    
+
+}
+
+fn print_tab_for_solution(solution: &(Vec<Vec<BoxFingering>>, i32), lines: Vec<Line<Vec<Pitch>>>, guitar: Guitar) {
+    println!("score: {}", solution.1);
+    let pitch_fingerings = convert_to_pitch_fingering(solution.0.clone(), lines.clone());
+
+    let width = 60;
+    let padding = 2;
+    let playback = None;
+    let tab = render_tab(&pitch_fingerings, &guitar, width, padding, playback);
+
+    println!("{}", tab);
 }
 
 fn convert_to_pitch_fingering(
@@ -111,20 +125,19 @@ fn convert_to_pitch_fingering(
 
 fn convert_playable_to_pitch_fingerings(
     box_fingerings: Vec<Vec<BoxFingering>>,
-    _pitches: &Vec<Pitch>,
+    _pitches: &[Pitch],
     idx: usize,
 ) -> Line<Vec<PitchFingering>> {
     let pitch_fingerings_for_line = box_fingerings
         .iter()
-        .filter(|f| f.is_empty() == false && f[0].line_idx == idx as u8)
+        .filter(|f| !f.is_empty() && f[0].line_idx == idx as u8)
         .map(|bf| {
             let chosen = &bf[0];
-            let pitch_fingerings = PitchFingering {
+            PitchFingering {
                 string_number: StringNumber::new(chosen.string).unwrap(),
                 fret: (chosen.position + chosen.finger) - 1,
                 pitch: Pitch::A0, // doen't matter for render
-            };
-            pitch_fingerings
+            }
         })
         .collect_vec();
     Line::<Vec<PitchFingering>>::Playable(pitch_fingerings_for_line)
@@ -142,7 +155,7 @@ fn successors(
     // each element in this slice is a potential next grip
     // that the current grip should be evaluated against
 
-    let scores = playable_nexts
+ playable_nexts
         .into_iter()
         .map(|playable_next: Grip| {
             let score = score_beat_transition(grip, &playable_next);
@@ -152,13 +165,11 @@ fn successors(
             }
             (grip.to_owned(), score)
         })
-        .collect_vec();
-
-    scores
+        .collect_vec()
 }
 
-fn get_playable_positions_for_all_notes_on_next_line<'a>(
-    possible_box_fingerings: &'a [Vec<Vec<BoxFingering>>],
+fn get_playable_positions_for_all_notes_on_next_line(
+    possible_box_fingerings: &[Vec<Vec<BoxFingering>>],
     curr_idx: u8,
 ) -> Vec<Vec<BoxFingering>> {
     let nexts = possible_box_fingerings
@@ -166,9 +177,8 @@ fn get_playable_positions_for_all_notes_on_next_line<'a>(
         .skip_while(|line| line.is_empty() || is_prior_idx(curr_idx, line))
         .collect_vec()[0];
 
-    let playable_nexts = get_playable_fingerings_for_line(&nexts);
-    playable_nexts
-}
+    get_playable_fingerings_for_line(nexts)
+ }
 
 fn is_prior_idx(curr_idx: u8, nexts: &[PossibleFingerings]) -> bool {
     let next_idx = nexts[0][0].line_idx;
@@ -176,13 +186,13 @@ fn is_prior_idx(curr_idx: u8, nexts: &[PossibleFingerings]) -> bool {
 }
 
 fn get_playable_fingerings_for_line(
-    possible_box_fingerings: &Vec<PossibleFingerings>,
+    possible_box_fingerings: &[PossibleFingerings],
 ) -> Vec<Grip> {
     match possible_box_fingerings.len() {
         1 => {
             // these are all the fingerings for a single note
             // all fingerings are separate grips
-            transpose(possible_box_fingerings.clone())
+            transpose(possible_box_fingerings.to_vec())
         }
         _ => todo!(),
     }
@@ -289,7 +299,7 @@ mod test_convert {
     }
 }
 
-fn convert_lines(guitar: &Guitar, lines: &Vec<Line<Vec<Pitch>>>) -> Vec<Vec<PossibleFingerings>> {
+fn convert_lines(guitar: &Guitar, lines: &[Line<Vec<Pitch>>]) -> Vec<Vec<PossibleFingerings>> {
     lines
         .iter()
         .enumerate()
@@ -300,19 +310,19 @@ fn convert_lines(guitar: &Guitar, lines: &Vec<Line<Vec<Pitch>>>) -> Vec<Vec<Poss
                 convert_beat_to_possible_fingerings(guitar, line_idx as u8, beat_pitches)
             }
         })
-        .filter(|bfs| bfs.is_empty() == false)
+        .filter(|bfs| !bfs.is_empty())
         .collect_vec()
 }
 
 fn convert_beat_to_possible_fingerings(
     guitar: &Guitar,
     line_idx: u8,
-    beat_pitches: &Vec<Pitch>,
+    beat_pitches: &[Pitch],
 ) -> Vec<PossibleFingerings> {
     beat_pitches
         .iter()
         .map(|pitch| {
-            let pfs = generate_pitch_fingerings_for_pitch(&guitar.string_ranges, &pitch);
+            let pfs = generate_pitch_fingerings_for_pitch(&guitar.string_ranges, pitch);
             convert_pitch_fingerings_to_box_fingerings(line_idx, &pfs)
         })
         .collect_vec()
@@ -382,7 +392,7 @@ fn convert_pitch_fingering_to_box_fingering(
             let fb = BoxFingering {
                 line_idx,
                 position: box_pos as u8,
-                string: string,
+                string,
                 finger: used_finger,
             };
             ret.push(fb);
@@ -475,5 +485,18 @@ fn score_chord_to_chord_transition(_curr: &[BoxFingering], next: &[BoxFingering]
 }
 
 fn score_single_note_transition(curr: &BoxFingering, next: &BoxFingering) -> i32 {
-    curr.position.abs_diff(next.position).into()
+    let hand_movement = curr.position.abs_diff(next.position);
+    let shifted_finger_next = match next.finger {
+        0 | 5 => 1,
+        _ => 0
+    };
+    let shifted_finger_curr = match curr.finger {
+        0 | 5 => 1,
+        _ => 0
+    };
+    let mut same_finger_skip = 0;
+    if curr.string != next.string && curr.finger == next.finger{
+             same_finger_skip = 1;
+    }
+    (hand_movement + shifted_finger_next + shifted_finger_curr + same_finger_skip).into()
 }
