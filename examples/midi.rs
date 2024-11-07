@@ -8,43 +8,28 @@ static NOTE_NAMES: [&str; 12] = [
 ];
 
 fn main() {
-    let smf = Smf::parse(include_bytes!("./All_Of_Me.mid")).unwrap();
-
+    let smf = Smf::parse(include_bytes!("./All_Of_Me.mid"))
+        .map_err(|e| format!("Failed to parse MIDI file: {}", e))
+        .expect("Failed to parse MIDI file");
     let mut notes: Vec<String> = vec![];
     let mut last_delta: u28 = 0.into();
     for event in smf.tracks[0].iter() {
-        //println!("{:?}", event.kind);
-
-        if let TrackEventKind::Midi { message, .. } = event.kind {
-            match message {
+        match event.kind {
+            TrackEventKind::Midi { message, .. } => match message {
                 MidiMessage::NoteOn { key, vel } => {
                     let delta = event.delta;
-                    let _last_click = delta.as_int() / 240;
-                    let _click = (delta.as_int() + last_delta.as_int()) / 240;
-                    // for _ in click..=last_click {
-                    //     notes.push(" ".to_string());
-                    // }
                     if vel > 0 {
                         let note = get_note_name(key.as_int().into());
-                        //println!("hit note {} at click {}", note, click);
                         notes.push(note);
-                    } else {
-                        // println!(
-                        //     "released note {} after click {}",
-                        //     get_note_name(key.as_int().into()),
-                        //     click
-                        // );
                     }
                     last_delta = delta;
                 }
                 MidiMessage::NoteOff { .. } => {
-                    println!("last delta {}", event.delta);
                     last_delta = event.delta;
                 }
-                _ => {
-                    //println!("{:?}", event.kind)
-                }
-            }
+                _ => {}
+            },
+            _ => {}
         }
     }
 
